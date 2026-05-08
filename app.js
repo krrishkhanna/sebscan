@@ -563,10 +563,13 @@ async function handleManualBarcodeLookup() {
 }
 
 async function lookupBarcode(code) {
-  const product = (await fetchOpenFoodFactsProduct(code)) || PRODUCT_DB[code];
+  const normalizedCode = normalizeBarcode(code);
+  const product = (await fetchOpenFoodFactsProduct(normalizedCode)) || PRODUCT_DB[normalizedCode];
   if (!product) {
-    elements.scannerStatus.textContent = "Barcode not found in the demo catalog.";
-    showToast("Product not found in demo catalog.");
+    elements.barcodeInput.value = normalizedCode;
+    elements.scannerStatus.textContent =
+      `No public product match found for ${normalizedCode}. Try the label photo upload or use one of the demo fallback barcodes below.`;
+    showToast("No product match found. Use photo upload or a demo fallback code.");
     return;
   }
   await runAnalysis({
@@ -574,6 +577,20 @@ async function lookupBarcode(code) {
     name: product.name,
     ingredients: product.ingredients,
   });
+}
+
+function normalizeBarcode(code) {
+  const digitsOnly = String(code || "").replace(/[^\d]/g, "");
+  if (!digitsOnly) return String(code || "").trim();
+  return digitsOnly;
+}
+
+function getBarcodeCandidates(code) {
+  const clean = normalizeBarcode(code);
+  const candidates = [clean];
+  if (clean.length === 12) candidates.push(`0${clean}`);
+  if (clean.length === 13 && clean.startsWith("0")) candidates.push(clean.slice(1));
+  return [...new Set(candidates.filter(Boolean))];
 }
 
 function cleanOcrText(text) {
@@ -655,28 +672,29 @@ function loadImage(src) {
 }
 
 async function fetchOpenFoodFactsProduct(code) {
-  try {
-    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`);
-    if (!response.ok) return null;
-    const data = await response.json();
-    if (data.status !== 1 || !data.product) return null;
-    const product = data.product;
-    return {
-      mode: "Barcode scan",
-      name: product.product_name || "Scanned product",
-      ingredients: [
-        product.ingredients_text || "",
-        product.nutriments?.energy_kcal ? `Energy ${Math.round(product.nutriments.energy_kcal)} kcal.` : "",
-        product.nutriments?.proteins_100g ? `Protein ${product.nutriments.proteins_100g}g.` : "",
-        product.nutriments?.sugars_100g ? `Sugar ${product.nutriments.sugars_100g}g.` : "",
-        product.nutriments?.fat_100g ? `Fat ${product.nutriments.fat_100g}g.` : "",
-      ]
-        .filter(Boolean)
-        .join(" "),
-    };
-  } catch {
-    return null;
+  for (const candidate of getBarcodeCandidates(code)) {
+    try {
+      const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(candidate)}.json`);
+      if (!response.ok) continue;
+      const data = await response.json();
+      if (data.status !== 1 || !data.product) continue;
+      const product = data.product;
+      return {
+        mode: "Barcode scan",
+        name: product.product_name || "Scanned product",
+        ingredients: [
+          product.ingredients_text || "",
+          product.nutriments?.energy_kcal ? `Energy ${Math.round(product.nutriments.energy_kcal)} kcal.` : "",
+          product.nutriments?.proteins_100g ? `Protein ${product.nutriments.proteins_100g}g.` : "",
+          product.nutriments?.sugars_100g ? `Sugar ${product.nutriments.sugars_100g}g.` : "",
+          product.nutriments?.fat_100g ? `Fat ${product.nutriments.fat_100g}g.` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      };
+    } catch {}
   }
+  return null;
 }
 
 function normalizeInput(text) {
