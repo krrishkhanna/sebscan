@@ -228,9 +228,9 @@ const state = {
   history: [],
   lastResult: null,
   activeUser: loadActiveUser(),
-  scannerStream: null,
-  detectorTimer: null,
-  scannerSupported: "BarcodeDetector" in window && navigator.mediaDevices?.getUserMedia,
+  scannerInstance: null,
+  scannerRunning: false,
+  scannerSupported: Boolean(window.Html5Qrcode),
   selectedImageFile: null,
   ocrRunning: false,
 };
@@ -248,7 +248,7 @@ const elements = {
   ocrStatus: document.getElementById("ocrStatus"),
   startScannerButton: document.getElementById("startScannerButton"),
   stopScannerButton: document.getElementById("stopScannerButton"),
-  scannerVideo: document.getElementById("scannerVideo"),
+  scannerReader: document.getElementById("scannerReader"),
   scannerPlaceholder: document.getElementById("scannerPlaceholder"),
   barcodeInput: document.getElementById("barcodeInput"),
   barcodeLookupButton: document.getElementById("barcodeLookupButton"),
@@ -446,21 +446,27 @@ async function extractLabelTextFromImage() {
   elements.analyzeButton.disabled = true;
   elements.ocrStatus.textContent = "Running OCR on the uploaded label...";
   try {
-    const result = await window.Tesseract.recognize(state.selectedImageFile, "eng", {
+    const processedSource = await preprocessImage(state.selectedImageFile);
+    const result = await window.Tesseract.recognize(processedSource, "eng", {
       logger: (message) => {
         if (message.status === "recognizing text") {
           elements.ocrStatus.textContent = `Running OCR... ${Math.round((message.progress || 0) * 100)}%`;
         }
       },
     });
-    const text = result.data.text.trim();
+    const text = isolateRelevantLabelText(cleanOcrText(result.data.text.trim()));
     if (!text) {
       elements.ocrStatus.textContent = "No readable label text was detected.";
       showToast("Could not read the label clearly.");
       return;
     }
     elements.ingredientsInput.value = cleanOcrText(text);
-    elements.ocrStatus.textContent = "OCR complete. Review the extracted text, then run analysis.";
+    elements.ocrStatus.textContent = "OCR complete. Running analysis on the extracted label.";
+    await runAnalysis({
+      mode: "OCR scan",
+      name: "Uploaded label",
+      ingredients: text,
+    });
   } catch (error) {
     elements.ocrStatus.textContent = "OCR failed. Try a clearer image.";
     showToast("OCR failed.");
@@ -473,38 +479,39 @@ async function extractLabelTextFromImage() {
 
 async function startScanner() {
   if (!state.scannerSupported) return;
+  if (state.scannerRunning) return;
   try {
     elements.startScannerButton.disabled = true;
     stopScanner();
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: "environment" } },
-      audio: false,
-    });
-    state.scannerStream = stream;
-    elements.scannerVideo.srcObject = stream;
-    await elements.scannerVideo.play();
+    state.scannerInstance = new Html5Qrcode("scannerReader");
     elements.scannerPlaceholder.classList.add("hidden");
     elements.scannerStatus.textContent = "Scanner running. Point the camera at a barcode.";
-
-    const detector = new BarcodeDetector({
-      formats: ["ean_13", "ean_8", "upc_a", "upc_e", "code_128", "qr_code"],
-    });
-
-    state.detectorTimer = window.setInterval(async () => {
-      try {
-        const barcodes = await detector.detect(elements.scannerVideo);
-        if (barcodes.length) {
-          const value = barcodes[0].rawValue;
-          if (value) {
-            elements.scannerStatus.textContent = `Detected barcode ${value}.`;
-            stopScanner();
-            await lookupBarcode(value);
-          }
-        }
-      } catch {
-        elements.scannerStatus.textContent = "Scanner is on, but detection is still waiting for a clear frame.";
+    await state.scannerInstance.start(
+      { facingMode: "environment" },
+      {
+        fps: 10,
+        qrbox: { width: 220, height: 140 },
+        rememberLastUsedCamera: true,
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.UPC_E,
+          Html5QrcodeSupportedFormats.CODE_128,
+        ],
+      },
+      async (decodedText) => {
+        if (!decodedText) return;
+        state.scannerRunning = false;
+        elements.scannerStatus.textContent = `Detected barcode ${decodedText}. Looking up product...`;
+        await stopScanner();
+        await lookupBarcode(decodedText);
+      },
+      () => {
+        elements.scannerStatus.textContent = "Scanner is active. Hold steady over the barcode.";
       }
-    }, 1200);
+    );
+    state.scannerRunning = true;
   } catch {
     elements.scannerStatus.textContent = "Could not access the camera. Check browser permissions and try again.";
     showToast("Camera access failed.");
@@ -512,17 +519,17 @@ async function startScanner() {
   }
 }
 
-function stopScanner() {
-  if (state.detectorTimer) {
-    clearInterval(state.detectorTimer);
-    state.detectorTimer = null;
+async function stopScanner() {
+  if (state.scannerInstance) {
+    try {
+      if (state.scannerRunning) {
+        await state.scannerInstance.stop();
+      }
+      await state.scannerInstance.clear();
+    } catch {}
+    state.scannerInstance = null;
   }
-  if (state.scannerStream) {
-    state.scannerStream.getTracks().forEach((track) => track.stop());
-    state.scannerStream = null;
-  }
-  elements.scannerVideo.pause();
-  elements.scannerVideo.srcObject = null;
+  state.scannerRunning = false;
   elements.scannerPlaceholder.classList.remove("hidden");
   elements.startScannerButton.disabled = false;
 }
@@ -537,7 +544,7 @@ async function handleManualBarcodeLookup() {
 }
 
 async function lookupBarcode(code) {
-  const product = PRODUCT_DB[code];
+  const product = (await fetchOpenFoodFactsProduct(code)) || PRODUCT_DB[code];
   if (!product) {
     elements.scannerStatus.textContent = "Barcode not found in the demo catalog.";
     showToast("Product not found in demo catalog.");
@@ -555,8 +562,102 @@ function cleanOcrText(text) {
     .replace(/\r/g, " ")
     .replace(/\n{2,}/g, "\n")
     .replace(/[|]/g, "I")
+    .replace(/[^\S\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function isolateRelevantLabelText(text) {
+  const lower = text.toLowerCase();
+  const startCandidates = ["ingredients", "ingredient list", "contains"];
+  let startIndex = -1;
+  for (const candidate of startCandidates) {
+    const index = lower.indexOf(candidate);
+    if (index !== -1) {
+      startIndex = index;
+      break;
+    }
+  }
+
+  const relevant = startIndex !== -1 ? text.slice(startIndex) : text;
+  const endMarkers = ["allergen", "manufactured", "storage", "fssai", "customer care"];
+  let endIndex = relevant.length;
+  const relevantLower = relevant.toLowerCase();
+  for (const marker of endMarkers) {
+    const idx = relevantLower.indexOf(marker);
+    if (idx !== -1 && idx < endIndex) {
+      endIndex = idx;
+    }
+  }
+  return relevant.slice(0, endIndex).trim();
+}
+
+async function preprocessImage(file) {
+  const dataUrl = await fileToDataUrl(file);
+  const image = await loadImage(dataUrl);
+  const canvas = document.createElement("canvas");
+  const maxWidth = 1600;
+  const scale = Math.min(1, maxWidth / image.width);
+  canvas.width = Math.max(1, Math.round(image.width * scale));
+  canvas.height = Math.max(1, Math.round(image.height * scale));
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+  const data = imageData.data;
+
+  for (let i = 0; i < data.length; i += 4) {
+    const gray = (data[i] * 0.299) + (data[i + 1] * 0.587) + (data[i + 2] * 0.114);
+    const contrast = gray > 140 ? 255 : gray < 85 ? 0 : gray;
+    data[i] = contrast;
+    data[i + 1] = contrast;
+    data[i + 2] = contrast;
+  }
+
+  ctx.putImageData(imageData, 0, 0);
+  return canvas;
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = reject;
+    image.src = src;
+  });
+}
+
+async function fetchOpenFoodFactsProduct(code) {
+  try {
+    const response = await fetch(`https://world.openfoodfacts.org/api/v0/product/${encodeURIComponent(code)}.json`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    if (data.status !== 1 || !data.product) return null;
+    const product = data.product;
+    return {
+      mode: "Barcode scan",
+      name: product.product_name || "Scanned product",
+      ingredients: [
+        product.ingredients_text || "",
+        product.nutriments?.energy_kcal ? `Energy ${Math.round(product.nutriments.energy_kcal)} kcal.` : "",
+        product.nutriments?.proteins_100g ? `Protein ${product.nutriments.proteins_100g}g.` : "",
+        product.nutriments?.sugars_100g ? `Sugar ${product.nutriments.sugars_100g}g.` : "",
+        product.nutriments?.fat_100g ? `Fat ${product.nutriments.fat_100g}g.` : "",
+      ]
+        .filter(Boolean)
+        .join(" "),
+    };
+  } catch {
+    return null;
+  }
 }
 
 function normalizeInput(text) {

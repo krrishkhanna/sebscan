@@ -8,6 +8,7 @@
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
     <script src="config.js"></script>
   </head>
@@ -106,7 +107,7 @@
               <div class="preview-shell hidden" id="ocrPreviewShell">
                 <img id="ocrPreviewImage" class="preview-image" alt="Selected label preview" />
               </div>
-              <button class="outline-button" id="ocrButton">Extract label text</button>
+              <button class="outline-button" id="ocrButton">Extract and analyze label</button>
               <p class="helper-text" id="ocrStatus">
                 Upload a clear back-of-pack image with ingredients and nutrition facts. Best results
                 come from flat, well-lit labels.
@@ -134,7 +135,7 @@
                 <h3>Use your camera in the browser</h3>
               </div>
               <div class="scanner-shell">
-                <video id="scannerVideo" class="scanner-video" playsinline muted></video>
+                <div id="scannerReader" class="scanner-reader"></div>
                 <div class="scanner-placeholder" id="scannerPlaceholder">
                   Camera scanner is off. Start it to detect a barcode in supported browsers.
                 </div>
@@ -149,7 +150,7 @@
                 <input id="barcodeInput" class="text-input" placeholder="8901030895483" />
                 <button class="outline-button compact" id="barcodeLookupButton">Lookup</button>
               </div>
-              <p class="helper-text" id="scannerStatus">Scanner idle. Use Chrome or Edge on mobile for the best browser camera support.</p>
+              <p class="helper-text" id="scannerStatus">Scanner idle. Mobile Chrome usually works best for live camera scanning.</p>
             </article>
           </section>
         </section>
