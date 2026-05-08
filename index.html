@@ -1,0 +1,311 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>SebScan</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+    <script src="config.js"></script>
+  </head>
+  <body>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="brand-block">
+          <p class="eyebrow">SEBSCAN</p>
+          <h1>Scan ingredients, macros, and label quality in one pass.</h1>
+        </div>
+        <div class="header-actions">
+          <span class="user-badge" id="userBadge">Guest mode</span>
+          <button class="ghost-button" id="headerAuthButton">Sign in</button>
+        </div>
+      </header>
+
+      <nav class="top-nav">
+        <button class="nav-tab active" data-nav="home">Home</button>
+        <button class="nav-tab" data-nav="scan">Scan</button>
+        <button class="nav-tab" data-nav="results">Results</button>
+        <button class="nav-tab" data-nav="history">History</button>
+        <button class="nav-tab" data-nav="learn">Learn</button>
+        <button class="nav-tab" data-nav="profile">Profile</button>
+      </nav>
+
+      <main class="page-shell">
+        <section class="screen active" data-screen="home">
+          <section class="hero-panel">
+            <div class="hero-copy">
+              <p class="eyebrow">Ingredient and macro scanner</p>
+              <h2>Point, upload, or paste a label and get a practical judgment.</h2>
+              <p>
+                SebScan reads ingredient decks, estimates trigger risk, extracts macro hints from
+                nutrition panels, and explains why a packaged product may or may not fit your routine.
+              </p>
+              <div class="hero-actions">
+                <button class="cta-button" data-action="manual">Analyze label</button>
+                <button class="outline-button" data-action="barcode">Open scanner</button>
+              </div>
+            </div>
+            <div class="hero-score-card">
+              <span class="score-label">Latest safe score</span>
+              <strong id="heroScore">82</strong>
+              <span class="score-caption" id="heroCaption">Low trigger risk</span>
+              <div class="score-mini-grid">
+                <div>
+                  <span>Tracked rules</span>
+                  <strong id="ruleCount">15</strong>
+                </div>
+                <div>
+                  <span>India aliases</span>
+                  <strong id="aliasCount">35</strong>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="content-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">How it helps</p>
+                <h3>Core product flows</h3>
+              </div>
+              <div class="feature-list" id="featureList"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">India-aware labels</p>
+                <h3>Regional terms the engine normalizes</h3>
+              </div>
+              <div class="tag-cloud" id="indiaTags"></div>
+            </article>
+          </section>
+
+          <section class="panel">
+            <div class="panel-heading">
+              <p class="eyebrow">Recent scans</p>
+              <h3>Saved product decisions</h3>
+            </div>
+            <div class="recent-strip" id="recentStrip"></div>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="scan">
+          <section class="content-grid scan-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Upload or paste</p>
+                <h3>Read the back label automatically</h3>
+              </div>
+
+              <label class="field-label" for="ocrImageInput">Upload an ingredient-label photo</label>
+              <input id="ocrImageInput" class="file-input" type="file" accept="image/*" />
+              <div class="preview-shell hidden" id="ocrPreviewShell">
+                <img id="ocrPreviewImage" class="preview-image" alt="Selected label preview" />
+              </div>
+              <button class="outline-button" id="ocrButton">Extract label text</button>
+              <p class="helper-text" id="ocrStatus">
+                Upload a clear back-of-pack image with ingredients and nutrition facts.
+              </p>
+
+              <label class="field-label" for="ingredientsInput">Ingredients or label text</label>
+              <textarea
+                id="ingredientsInput"
+                class="ingredients-input"
+                placeholder="Water, sugar, refined palmolein oil, maltodextrin, INS 407, whey solids..."
+              ></textarea>
+
+              <div class="chip-row">
+                <button class="mini-chip" data-sample="clean">Load clean sample</button>
+                <button class="mini-chip" data-sample="risky">Load snack sample</button>
+                <button class="mini-chip" data-sample="dairy">Load dairy sample</button>
+              </div>
+
+              <button class="cta-button" id="analyzeButton">Analyze ingredients + macros</button>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Barcode scanner</p>
+                <h3>Use your camera in the browser</h3>
+              </div>
+              <div class="scanner-shell">
+                <video id="scannerVideo" class="scanner-video" playsinline muted></video>
+                <div class="scanner-placeholder" id="scannerPlaceholder">
+                  Camera scanner is off. Start it to detect a barcode in supported browsers.
+                </div>
+                <div class="scanner-line"></div>
+              </div>
+              <div class="scanner-actions">
+                <button class="cta-button compact" id="startScannerButton">Start scanner</button>
+                <button class="outline-button compact" id="stopScannerButton">Stop</button>
+              </div>
+              <label class="field-label" for="barcodeInput">Or enter barcode manually</label>
+              <div class="inline-form">
+                <input id="barcodeInput" class="text-input" placeholder="8901030895483" />
+                <button class="outline-button compact" id="barcodeLookupButton">Lookup</button>
+              </div>
+              <p class="helper-text" id="scannerStatus">Scanner idle.</p>
+            </article>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="results">
+          <section class="results-layout">
+            <article class="panel results-panel">
+              <div class="results-header">
+                <div>
+                  <p class="eyebrow" id="resultMode">Last analysis</p>
+                  <h2 id="resultTitle">Mostly safe</h2>
+                  <p id="resultSummary">
+                    No major red flags found. A few moderate ingredients are worth monitoring.
+                  </p>
+                </div>
+                <div class="gauge-wrap">
+                  <div class="gauge-ring">
+                    <div class="gauge-core">
+                      <span>Risk</span>
+                      <strong id="riskScore">18</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="result-meta-row">
+                <span class="meta-pill" id="resultConfidence">Confidence 91%</span>
+                <span class="meta-pill" id="resultFocus">Focus: balanced</span>
+                <span class="meta-pill" id="resultJudgment">Judgment: good fit</span>
+              </div>
+
+              <div class="macro-grid" id="macroGrid"></div>
+
+              <div class="chip-row filter-row" id="filterRow"></div>
+
+              <div class="panel-heading inner-heading">
+                <p class="eyebrow">Flagged triggers</p>
+                <h3>What moved the score</h3>
+              </div>
+              <div class="trigger-list" id="triggerList"></div>
+            </article>
+
+            <article class="panel side-panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Interpretation</p>
+                <h3>Why this result matters</h3>
+              </div>
+              <div class="insight-list" id="insightList"></div>
+            </article>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="history">
+          <section class="content-grid history-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">History</p>
+                <h3>Your saved scans</h3>
+              </div>
+              <div class="history-list" id="historyList"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Trend view</p>
+                <h3>Category balance and streak</h3>
+              </div>
+              <div class="history-chart">
+                <div class="chart-bars" id="chartBars"></div>
+                <div class="chart-labels">
+                  <span>Gut</span>
+                  <span>Inflam</span>
+                  <span>Horm</span>
+                  <span>Yeast</span>
+                  <span>Safe</span>
+                </div>
+              </div>
+              <div class="streak-card">
+                <span>Current streak</span>
+                <strong id="streakCount">4 scans</strong>
+              </div>
+            </article>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="learn">
+          <section class="content-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Learn</p>
+                <h3>Common trigger categories</h3>
+              </div>
+              <div class="accordion-list" id="learnList"></div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Better swaps</p>
+                <h3>What to prefer more often</h3>
+              </div>
+              <div class="recommend-list" id="recommendList"></div>
+            </article>
+          </section>
+        </section>
+
+        <section class="screen" data-screen="profile">
+          <section class="content-grid profile-grid">
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Account</p>
+                <h3>Sign in or create an account</h3>
+              </div>
+              <div class="auth-state" id="authState"></div>
+              <div class="auth-form" id="authForm">
+                <label class="field-label" for="authName">Name</label>
+                <input id="authName" class="text-input" placeholder="Your name" />
+                <label class="field-label" for="authEmail">Email</label>
+                <input id="authEmail" class="text-input" placeholder="you@example.com" />
+                <label class="field-label" for="authPassword">Password</label>
+                <input id="authPassword" class="text-input" type="password" placeholder="Create a password" />
+                <div class="auth-actions">
+                  <button class="cta-button compact" id="signUpButton">Sign up</button>
+                  <button class="outline-button compact" id="signInButton">Sign in</button>
+                  <button class="ghost-button compact hidden" id="signOutButton">Sign out</button>
+                </div>
+                <p class="helper-text" id="databaseStatus">
+                  Database mode: local preview fallback. Add Supabase config in `config.js` to use hosted auth and storage.
+                </p>
+              </div>
+            </article>
+
+            <article class="panel">
+              <div class="panel-heading">
+                <p class="eyebrow">Personal dashboard</p>
+                <h3>Your usage snapshot</h3>
+              </div>
+              <div class="profile-metrics">
+                <div>
+                  <span>Total scans</span>
+                  <strong id="totalScans">0</strong>
+                </div>
+                <div>
+                  <span>Safe picks</span>
+                  <strong id="safePicks">0</strong>
+                </div>
+                <div>
+                  <span>Trigger hits</span>
+                  <strong id="watchHits">0</strong>
+                </div>
+              </div>
+              <div class="profile-note" id="profileNote">
+                Sign in to keep your browsing and scan history tied to one account in this demo.
+              </div>
+            </article>
+          </section>
+        </section>
+      </main>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
