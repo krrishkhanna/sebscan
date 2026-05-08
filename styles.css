@@ -113,6 +113,12 @@ body {
   transition: transform 180ms ease, background 180ms ease, border-color 180ms ease;
 }
 
+button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
 .ghost-button,
 .outline-button,
 .mini-chip,

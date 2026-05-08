@@ -232,6 +232,7 @@ const state = {
   detectorTimer: null,
   scannerSupported: "BarcodeDetector" in window && navigator.mediaDevices?.getUserMedia,
   selectedImageFile: null,
+  ocrRunning: false,
 };
 
 const elements = {
@@ -438,7 +439,11 @@ async function extractLabelTextFromImage() {
     showToast("OCR library is unavailable.");
     return;
   }
+  if (state.ocrRunning) return;
 
+  state.ocrRunning = true;
+  elements.ocrButton.disabled = true;
+  elements.analyzeButton.disabled = true;
   elements.ocrStatus.textContent = "Running OCR on the uploaded label...";
   try {
     const result = await window.Tesseract.recognize(state.selectedImageFile, "eng", {
@@ -455,16 +460,21 @@ async function extractLabelTextFromImage() {
       return;
     }
     elements.ingredientsInput.value = cleanOcrText(text);
-    elements.ocrStatus.textContent = "OCR complete. Review the extracted text, then analyze it.";
+    elements.ocrStatus.textContent = "OCR complete. Review the extracted text, then run analysis.";
   } catch (error) {
     elements.ocrStatus.textContent = "OCR failed. Try a clearer image.";
     showToast("OCR failed.");
+  } finally {
+    state.ocrRunning = false;
+    elements.ocrButton.disabled = false;
+    elements.analyzeButton.disabled = false;
   }
 }
 
 async function startScanner() {
   if (!state.scannerSupported) return;
   try {
+    elements.startScannerButton.disabled = true;
     stopScanner();
     const stream = await navigator.mediaDevices.getUserMedia({
       video: { facingMode: { ideal: "environment" } },
@@ -498,6 +508,7 @@ async function startScanner() {
   } catch {
     elements.scannerStatus.textContent = "Could not access the camera. Check browser permissions and try again.";
     showToast("Camera access failed.");
+    elements.startScannerButton.disabled = false;
   }
 }
 
@@ -513,6 +524,7 @@ function stopScanner() {
   elements.scannerVideo.pause();
   elements.scannerVideo.srcObject = null;
   elements.scannerPlaceholder.classList.remove("hidden");
+  elements.startScannerButton.disabled = false;
 }
 
 async function handleManualBarcodeLookup() {
@@ -1080,6 +1092,7 @@ function createSupabaseService() {
       if (!activeUser) return;
       try {
         await supabaseClient.from("scans").insert({
+          user_id: activeUser.id || null,
           user_email: activeUser.email,
           product_name: entry.name,
           mode: entry.mode,

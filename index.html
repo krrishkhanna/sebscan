@@ -4,6 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>SebScan</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -15,7 +16,7 @@
       <header class="site-header">
         <div class="brand-block">
           <p class="eyebrow">SEBSCAN</p>
-          <h1>Scan ingredients, macros, and label quality in one pass.</h1>
+          <h1>Read food labels faster and decide if a product is actually worth keeping in your routine.</h1>
         </div>
         <div class="header-actions">
           <span class="user-badge" id="userBadge">Guest mode</span>
@@ -37,10 +38,11 @@
           <section class="hero-panel">
             <div class="hero-copy">
               <p class="eyebrow">Ingredient and macro scanner</p>
-              <h2>Point, upload, or paste a label and get a practical judgment.</h2>
+              <h2>Upload the back label, extract ingredients and macros, and get a useful judgment in seconds.</h2>
               <p>
-                SebScan reads ingredient decks, estimates trigger risk, extracts macro hints from
-                nutrition panels, and explains why a packaged product may or may not fit your routine.
+                SebScan is built for people who want a quick second opinion on packaged foods. It
+                combines OCR, ingredient normalization, macro extraction, and explainable trigger
+                scoring into one workflow.
               </p>
               <div class="hero-actions">
                 <button class="cta-button" data-action="manual">Analyze label</button>
@@ -106,7 +108,8 @@
               </div>
               <button class="outline-button" id="ocrButton">Extract label text</button>
               <p class="helper-text" id="ocrStatus">
-                Upload a clear back-of-pack image with ingredients and nutrition facts.
+                Upload a clear back-of-pack image with ingredients and nutrition facts. Best results
+                come from flat, well-lit labels.
               </p>
 
               <label class="field-label" for="ingredientsInput">Ingredients or label text</label>
@@ -146,7 +149,7 @@
                 <input id="barcodeInput" class="text-input" placeholder="8901030895483" />
                 <button class="outline-button compact" id="barcodeLookupButton">Lookup</button>
               </div>
-              <p class="helper-text" id="scannerStatus">Scanner idle.</p>
+              <p class="helper-text" id="scannerStatus">Scanner idle. Use Chrome or Edge on mobile for the best browser camera support.</p>
             </article>
           </section>
         </section>

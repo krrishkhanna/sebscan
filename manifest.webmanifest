@@ -1,9 +1,16 @@
 {
-  "name": "SebScan Mobile",
+  "name": "SebScan",
   "short_name": "SebScan",
   "display": "standalone",
-  "background_color": "#050505",
-  "theme_color": "#050505",
+  "background_color": "#f4f6f2",
+  "theme_color": "#2d6a4f",
   "start_url": "./",
-  "icons": []
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "64x64",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
 }

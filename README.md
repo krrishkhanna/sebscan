@@ -26,8 +26,11 @@ Then open `http://localhost:4173`.
 ## Database mode
 
 - Works immediately with local preview persistence
-- Supports hosted Supabase auth + scan storage via `config.js`
+- Supports hosted Supabase auth + scan storage when you add your keys to `config.js`
 - SQL schema is in [supabase-schema.sql](/Users/kkk/SebScan1/supabase-schema.sql)
+
+Setup note:
+- Copy [config.example.js](/Users/kkk/SebScan1/config.example.js) into `config.js` if you want to swap projects later. Only use a public browser-safe Supabase publishable/anon key there.
 
 ## Deployment
 

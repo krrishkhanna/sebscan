@@ -9,7 +9,6 @@ Recommended repo structure:
 - `index.html`
 - `styles.css`
 - `app.js`
-- `config.js`
 - `config.example.js`
 - `manifest.webmanifest`
 - `.nojekyll`
@@ -20,7 +19,8 @@ Create a Supabase project, then:
 
 1. Run the SQL in [supabase-schema.sql](/Users/kkk/SebScan1/supabase-schema.sql)
 2. Copy your project URL and anon key
-3. Put them in `config.js`
+3. Copy `config.example.js` to `config.js`
+4. Put the values in `config.js`
 
 Example:
 
