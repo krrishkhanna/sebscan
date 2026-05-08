@@ -49,6 +49,7 @@ code {
 
 body {
   padding: 24px;
+  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px));
 }
 
 .site-shell {
@@ -222,6 +223,10 @@ button:disabled {
 .history-item p,
 .signed-in-card p {
   color: var(--muted);
+}
+
+#iosPhotoHint {
+  margin-top: 8px;
 }
 
 .score-mini-grid,
@@ -617,6 +622,11 @@ button:disabled {
 }
 
 @media (max-width: 640px) {
+  body {
+    padding: 14px;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+  }
+
   .site-header,
   .header-actions,
   .scanner-actions,

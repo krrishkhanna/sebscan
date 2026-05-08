@@ -231,6 +231,7 @@ const state = {
   scannerInstance: null,
   scannerRunning: false,
   scannerSupported: Boolean(window.Html5Qrcode),
+  isIOS: /iPhone|iPad|iPod/i.test(navigator.userAgent),
   selectedImageFile: null,
   ocrRunning: false,
 };
@@ -412,6 +413,11 @@ function updateScannerAvailability() {
   if (!state.scannerSupported) {
     elements.scannerStatus.textContent = "Live barcode detection is not supported in this browser. Use manual barcode entry instead.";
     elements.startScannerButton.disabled = true;
+    return;
+  }
+
+  if (state.isIOS) {
+    elements.scannerStatus.textContent = "iPhone is supported, but camera scanning works best after allowing camera access and using good lighting.";
   }
 }
 
@@ -482,38 +488,51 @@ async function startScanner() {
   if (state.scannerRunning) return;
   try {
     elements.startScannerButton.disabled = true;
-    stopScanner();
+    await stopScanner();
     state.scannerInstance = new Html5Qrcode("scannerReader");
     elements.scannerPlaceholder.classList.add("hidden");
     elements.scannerStatus.textContent = "Scanner running. Point the camera at a barcode.";
-    await state.scannerInstance.start(
-      { facingMode: "environment" },
-      {
-        fps: 10,
-        qrbox: { width: 220, height: 140 },
-        rememberLastUsedCamera: true,
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.UPC_E,
-          Html5QrcodeSupportedFormats.CODE_128,
-        ],
-      },
-      async (decodedText) => {
-        if (!decodedText) return;
-        state.scannerRunning = false;
-        elements.scannerStatus.textContent = `Detected barcode ${decodedText}. Looking up product...`;
-        await stopScanner();
-        await lookupBarcode(decodedText);
-      },
-      () => {
-        elements.scannerStatus.textContent = "Scanner is active. Hold steady over the barcode.";
+    const scannerConfig = {
+      fps: 10,
+      qrbox: { width: 220, height: 140 },
+      rememberLastUsedCamera: true,
+      aspectRatio: 1.333334,
+      formatsToSupport: [
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.CODE_128,
+      ],
+    };
+    const onSuccess = async (decodedText) => {
+      if (!decodedText) return;
+      state.scannerRunning = false;
+      elements.scannerStatus.textContent = `Detected barcode ${decodedText}. Looking up product...`;
+      await stopScanner();
+      await lookupBarcode(decodedText);
+    };
+    const onFrame = () => {
+      elements.scannerStatus.textContent = "Scanner is active. Hold steady over the barcode.";
+    };
+
+    try {
+      await state.scannerInstance.start({ facingMode: "environment" }, scannerConfig, onSuccess, onFrame);
+    } catch {
+      const cameras = await Html5Qrcode.getCameras();
+      const preferredCamera =
+        cameras.find((camera) => /back|rear|environment/i.test(camera.label))?.id ||
+        cameras[0]?.id;
+      if (!preferredCamera) {
+        throw new Error("No camera available");
       }
-    );
+      await state.scannerInstance.start(preferredCamera, scannerConfig, onSuccess, onFrame);
+    }
     state.scannerRunning = true;
   } catch {
-    elements.scannerStatus.textContent = "Could not access the camera. Check browser permissions and try again.";
+    elements.scannerStatus.textContent = state.isIOS
+      ? "Could not start live scanning on iPhone. Use the label photo upload or manual barcode lookup instead."
+      : "Could not access the camera. Check browser permissions and try again.";
     showToast("Camera access failed.");
     elements.startScannerButton.disabled = false;
   }

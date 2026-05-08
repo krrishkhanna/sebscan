@@ -3,6 +3,9 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#2d6a4f" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <title>SebScan</title>
     <link rel="icon" type="image/svg+xml" href="favicon.svg" />
     <link rel="manifest" href="manifest.webmanifest" />
@@ -103,7 +106,7 @@
               </div>
 
               <label class="field-label" for="ocrImageInput">Upload an ingredient-label photo</label>
-              <input id="ocrImageInput" class="file-input" type="file" accept="image/*" />
+              <input id="ocrImageInput" class="file-input" type="file" accept="image/*" capture="environment" />
               <div class="preview-shell hidden" id="ocrPreviewShell">
                 <img id="ocrPreviewImage" class="preview-image" alt="Selected label preview" />
               </div>
@@ -111,6 +114,9 @@
               <p class="helper-text" id="ocrStatus">
                 Upload a clear back-of-pack image with ingredients and nutrition facts. Best results
                 come from flat, well-lit labels.
+              </p>
+              <p class="helper-text" id="iosPhotoHint">
+                On iPhone, using the rear camera from this upload button is usually the most reliable path.
               </p>
 
               <label class="field-label" for="ingredientsInput">Ingredients or label text</label>
